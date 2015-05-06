@@ -91,23 +91,6 @@ void writevec(int *lat, int N, int L) {
     }
     return;
 }
-
-double corr(int *lat, int N, int x) {
-
-   if(N%2==0) {
-
-    }
-   else {
-    
-
-
-   }
-
-
-return 0;
-
-}
-
  
 int main(int argc, char* argv[]) {
 
