@@ -3,41 +3,59 @@
 #include <math.h>
 #include <iostream>
 
-void genNeigh(int **Neigh, int N, int L) {
 
-    for(int i=0;i<N;i++) {
-        if( (i+1)%L == 0 )  Neigh[i][0]=i+1-L;
-        else          Neigh[i][0]=i+1;
+class simulation {
+public:
+    simulation();
+    simulation(int inL);
+    //~simulation();
 
-        if( ((i-1)%L == (L-1)) ||  ((i-1)%L == -1) )  Neigh[i][1]=i-1+L;
-        else          Neigh[i][1]=i-1;
+
+    int L;
+    /*int N = L*L;
+    int NN = 4;
+    int* lat = new int[N];
+*/
+};
+
+simulation::simulation() {
+    std::cout<<"Constructor works!";
+}
+
+simulation::simulation(int inL) {
+    L = inL;
+    std::cout<<"Constructor works!";
+}
+
+/*
+* Generate positions of nearest neighbors on given site.
+* char spt when assigned value 'M' generated positions are assigned to the table Neigh. When value 'T' is assigned neigbor list is generated each time function is called.
+*
+*/
+int* genNeigh(char spt, int x, int y) {
+    
+    int L = 4;
+    int N = L*L;
+    int NN = 4;
+
+        int* Neigh = new int[NN];
+        int i = x + L*y;
         
-        if( (i+L) >= N)  Neigh[i][2]=(i+L-N)%N;
-        else          Neigh[i][2]=i+L;
+        if( (i+1)%L == 0 )  Neigh[0]=i+1-L;
+        else          Neigh[0]=i+1;
 
-        if( (i-L) < 0)  Neigh[i][3]=(i-L+N)%N;
-        else          Neigh[i][3]=i-L;
-        } 
+        if( ((i-1)%L == (L-1)) ||  ((i-1)%L == -1) )  Neigh[1]=i-1+L;
+        else          Neigh[1]=i-1;
+        
+        if( (i+L) >= N)  Neigh[2]=(i+L-N)%N;
+        else          Neigh[2]=i+L;
+
+        if( (i-L) < 0)  Neigh[3]=(i-L+N)%N;
+        else          Neigh[3]=i-L;
+        
+        return Neigh; 
 }
 
-void nextNeigh(int **Neigh, int N, int L) {
-
-}
-
-void writeLatt(int *lat, int N, int L) {
-
-    for(int i=0;i<N;i++) {
-        std::cout<<i;
-        if(i%L==(L-1)) std::cout<<"\n";
-        else std::cout<<" , ";
-    }
-}
-
-
-void writeNeigh(int **Neigh,int NN, int L, int N) {
-    for(int i=0;i<N;i++) { for(int j=0;j<NN;j++) {
-        std::cout<<Neigh[i][j]<<" "; } std::cout<<"\n";}
-}
 
 double mag(int *lat, int NN, int N) {
 	double res=0;
@@ -79,26 +97,21 @@ double energy(int **Neigh, int *lat, int NN, int N) {
 	return res; // (double) N; 
 }
 
-double drand() {
+double drand01() {
     return double( rand() )/ double( RAND_MAX );
-}
-
-void writevec(int *lat, int N, int L) {
-    for(int i1=0;i1++;i1<N) {
-        std::cout<<i1;//<<" ";
-        //if(i1%L) std::cout<<"\n";
-        // FIX THIS!!!!!
-    }
-    return;
 }
  
 int main(int argc, char* argv[]) {
-
-    int L = atoi( argv[1] );     // lattice size
+        
+    int L = 4; //atoi( argv[1] );     // lattice size
     int N = L*L;    // number of sites
     int NN = 4;     // number of nearest neighbors
 
-    int mcsmax = 1000;
+    simulation Sim = simulation(4);
+    Sim.L = 4;
+    std::cout<<Sim.L;
+
+/*  int mcsmax = 1000;
 
     int lattice[N];
     int** Neigh = new int*[N];
@@ -109,7 +122,10 @@ int main(int argc, char* argv[]) {
     double beta, endt=4, begt= 0.1;
     int cutstep=10;
 
-    genNeigh(Neigh,N,L);
+    int* pos = genNeigh('a',1,1);
+    std::cout<<"\n";
+    for(int i=0;i<4;i++)
+        std::cout<<pos[i]<<"\n";
 
     for (int i = 0; i < N; i++) {
         double rd = drand();
@@ -170,13 +186,13 @@ for (int mcs = 1; mcs <= 1000; mcs++) {   // thermalization
         //std::cout<<2/beta<<" , "<<mtot/mcsmax<<" , "<<(m2-mtot*mtot/mcsmax)/mcsmax<<" , "<<enrg/mcsmax<<" , "<<(enrg2-enrg*enrg/mcsmax)/mcsmax<<"\n";
         
         } //b steps	
-
+*/
 //    writeLatt(lattice,N,L);
 //    std::cout<<"\n";
     
 //    for(int i=0;i<N;i++) { std::cout<<i<<" ; "; 
 //    for(int j=0;j<NN;j++) { std::cout<<Neigh[i][j]<<" , "; }
 //    std::cout<<"\n";}
-    writevec(lattice,N,L);
+//    writevec(lattice,N,L);
     return 0;
 }
