@@ -27,6 +27,7 @@ public:
     void init();
     void MCstep(int site, double b);
     void run(int steps, double b);
+    void tempsweep(int steps, double bs, double bf);
 
 private:
     int L;
@@ -149,6 +150,10 @@ void simulation::run(int steps, double b) {
     int site = (int) N*drand01();
     MCstep(site,b);
     }
+}
+
+void simulation::tempsweep(int steps, double bs, double bf) {
+
 }
  
 int main(int argc, char* argv[]) {
