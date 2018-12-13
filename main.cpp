@@ -27,8 +27,9 @@ public:
     void init();
     void MCstep(int site, double b);
     void run(int steps, double b);
-    void tempsweep(int steps, double bs, double bf);
-
+    void tempsweep(int steps, double bs, double bf, int bres);
+    void writeLat();
+     
 private:
     int L;
     int N;
@@ -152,8 +153,29 @@ void simulation::run(int steps, double b) {
     }
 }
 
-void simulation::tempsweep(int steps, double bs, double bf) {
+void simulation::tempsweep(int steps, double bs, double bf, int bres) {
+    std::cout<<"b\t"<<"m\t"<<"m2\t"<<"e\t"<<"e2\t"<<"RR\n";;
 
+    for(int i=0;i<bres;i++) {
+    double b = bs + (bf-bs)*i/bres;
+    run(steps,b);
+    std::cout<<b<<"\t"<<mag()<<"\t"<<mag2()<<"\t"<<ener()<<"\t"<<ener2()<<"\n";
+
+    }
+
+}
+
+void simulation::writeLat() {
+
+    for(int i=0;i<L;i++) {
+        for(int j=0;j<L;j++) {
+            if ( lat[i*L+j] == 1 ) 
+                std::cout<<"1";
+            else
+                std::cout<<"0";
+        }
+        std::cout<<"\n";
+    }
 }
  
 int main(int argc, char* argv[]) {
@@ -163,6 +185,15 @@ int main(int argc, char* argv[]) {
     int NN = 4;     // number of nearest neighbors
 
     simulation Sim(L);
-
+    //Sim.tempsweep(100,0.1,0.3,20);
+    Sim.init();
+    
+    /*for(int i=1;i<10;i++) {
+    Sim.run(100,2.1);
+    std::cout<<"\n";
+    Sim.writeLat();
+    std::cout<<Sim.mag();
+    */
+    }
     return 0;
 }
