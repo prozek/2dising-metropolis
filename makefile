@@ -1,5 +1,3 @@
 all:
-	g++ -lm nxn.cpp -o output
+	g++ -lm main.cpp -o output
 
-run:
-	./output > output.txt
