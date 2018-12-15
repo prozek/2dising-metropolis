@@ -13,7 +13,7 @@ double drand01() {
 class simulation {
 public:
     simulation();
-    simulation(int inL);
+    simulation(int inL, double coupl);
     ~simulation();
 
     double mag();
@@ -35,15 +35,17 @@ private:
     int N;
     int NN;
     int* lat;
+    double J;
 };
 
 simulation::simulation() {}
 
-simulation::simulation(int inL) {
+simulation::simulation(int inL, double coupl) {
     L = inL;
     N = L*L;
     NN = 4;
     lat = new int[N];
+    J = coupl;
 }
 
 simulation::~simulation() {}
@@ -134,7 +136,7 @@ void simulation::MCstep(int i, double b) {
     double deltaE = 0;
     double w;
     
-    for (int j=0;j<NN;j++) { deltaE += 2. * ( lat[i] ) * ( lat[genNeigh(i)[j]] ); }
+    for (int j=0;j<NN;j++) { deltaE += 2. * J * ( lat[i] ) * ( lat[genNeigh(i)[j]] ); }
     
     if (deltaE < 0) { w = 1.0; }
     else            { w = exp(-b*deltaE); }
