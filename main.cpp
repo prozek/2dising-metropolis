@@ -53,11 +53,7 @@ simulation::~simulation() {}
 */
 int* simulation::genNeigh(int i) {
     
-    int L = 4;
-    int N = L*L;
-    int NN = 4;
-
-    int* Neigh = new int[NN];     
+   int* Neigh = new int[NN];     
         
         if( (i+1)%L == 0 )  Neigh[0]=i+1-L;
         else          Neigh[0]=i+1;
@@ -194,6 +190,6 @@ int main(int argc, char* argv[]) {
     Sim.writeLat();
     std::cout<<Sim.mag();
     */
-    }
+    
     return 0;
 }
