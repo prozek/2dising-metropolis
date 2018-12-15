@@ -2,4 +2,6 @@
 
 WIP
 
-TODO: add rejection rate information
+TODO: 
+(1) rejection rate information
+(2) add magnetic field
