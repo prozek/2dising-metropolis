@@ -23,7 +23,6 @@ public:
     
     int* genNeigh(int i);
     
-    void check();
     void init();
     void MCstep(int site, double b);
     void run(int steps, double b);
@@ -113,13 +112,6 @@ double simulation::ener2() {
 			}}
 		}}
 	return res;
-}
-
-
-void simulation::check() {
-    int t = 5;
-    for(int i=0;i<4;i++)
-        std::cout<<genNeigh(t)[i]<<"\n";
 }
 
 /*
