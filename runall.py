@@ -1,11 +1,10 @@
 import os
 import pydantic
 
-def run_simulation(L: int):
-    cmd = './output ' + str(L)
-    os.system(cmd)
+def run_simulation(L: int, temperature: float):
+    cmd = './output ' + str(L) + " " + str(temperature)
     print("Started simulation, PID, lattice size L")
+    os.system(cmd)
+    pass
 
-
-for i in range(4,20):
-    run_simulation(i)
+run_simulation(6, 0.1)
