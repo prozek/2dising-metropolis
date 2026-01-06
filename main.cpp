@@ -22,6 +22,7 @@ public:
     double ener2();
     
     int* genNeigh(int i);
+    void getNeighbors(int i, int* Neigh);
     
     void init();
     void MCstep(int site, double b);
@@ -71,6 +72,23 @@ int* simulation::genNeigh(int i) {
         return Neigh; 
 }
 
+/*
+* Optimized inline neighbor lookup - no allocation
+*/
+void simulation::getNeighbors(int i, int* Neigh) {
+    if( (i+1)%L == 0 )  Neigh[0]=i+1-L;
+    else          Neigh[0]=i+1;
+
+    if( ((i-1)%L == (L-1)) ||  ((i-1)%L == -1) )  Neigh[1]=i-1+L;
+    else          Neigh[1]=i-1;
+    
+    if( (i+L) >= N)  Neigh[2]=(i+L-N)%N;
+    else          Neigh[2]=i+L;
+
+    if( (i-L) < 0)  Neigh[3]=(i-L+N)%N;
+    else          Neigh[3]=i-L;
+}
+
 
 double simulation::mag() {
 	double res = 0;
@@ -93,9 +111,11 @@ double simulation::mag2() {
 
 double simulation::ener() {
 	double res = 0;
+	int Neigh[4];
 	for(int i=0;i<N;i++) {			
+		getNeighbors(i, Neigh);
 		for(int j=0;j<NN;j++) {
-		res += (double) lat[i]*lat[genNeigh(i)[j]]; 
+			res += (double) lat[i]*lat[Neigh[j]]; 
 		}
 	}
 	return res; 
@@ -127,8 +147,10 @@ void simulation::init() {
 void simulation::MCstep(int i, double b) {
     double deltaE = 0;
     double w;
+    int Neigh[4];
+    getNeighbors(i, Neigh);
     
-    for (int j=0;j<NN;j++) { deltaE += 2. * J * ( lat[i] ) * ( lat[genNeigh(i)[j]] ); }
+    for (int j=0;j<NN;j++) { deltaE += 2. * J * ( lat[i] ) * ( lat[Neigh[j]] ); }
     
     if (deltaE < 0) { w = 1.0; }
     else            { w = exp(-b*deltaE); }
@@ -171,23 +193,32 @@ void simulation::writeLat() {
 int main(int argc, char* argv[]) {
         
     double J = 1; // Heisenberg/Ising coupling term
-    int L = 4; //atoi( argv[1] );     // lattice size
+    int L = atoi( argv[1] );     // lattice size
+    double local_temperature = atof( argv[2] );
     int N = L*L;    // number of sites
+    int N2 = N*N;   // square of number of sites
     int NN = 4;     // number of nearest neighbors
 
     simulation Sim(L, J);
-    Sim.writeLat();
-    //Sim.tempsweep(100,0.1,0.3,20);
-    std::cout<<"\n";
     Sim.init();
-    Sim.writeLat();
+    
+    // Flush output immediately
+    std::cout.setf(std::ios::unitbuf);
+    
+    int chunk_steps = 100;
+    int step_count = 0;
 
-    /*for(int i=1;i<10;i++) {
-    Sim.run(100,2.1);
-    std::cout<<"\n";
-    Sim.writeLat();
-    std::cout<<Sim.mag();
-    */
+    // Run indefinitely until user stops
+    for(int i=0; ; i++) {
+        Sim.run(chunk_steps, local_temperature);
+        step_count += chunk_steps;
+        
+        // Output frame with step info
+        std::cout<<"FRAME "<<step_count<<"\n";
+        Sim.writeLat();
+        std::cout<<"END\n";
+        std::cout.flush();
+    }
     
     return 0;
 }
