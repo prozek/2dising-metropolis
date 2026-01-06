@@ -170,14 +170,18 @@ void simulation::writeLat() {
  
 int main(int argc, char* argv[]) {
         
+    double J = 1; // Heisenberg/Ising coupling term
     int L = 4; //atoi( argv[1] );     // lattice size
     int N = L*L;    // number of sites
     int NN = 4;     // number of nearest neighbors
 
-    simulation Sim(L);
+    simulation Sim(L, J);
+    Sim.writeLat();
     //Sim.tempsweep(100,0.1,0.3,20);
+    std::cout<<"\n";
     Sim.init();
-    
+    Sim.writeLat();
+
     /*for(int i=1;i<10;i++) {
     Sim.run(100,2.1);
     std::cout<<"\n";
