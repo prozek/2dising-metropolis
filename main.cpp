@@ -2,6 +2,12 @@
 #include <stdio.h>
 #include <math.h>
 #include <iostream>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <cstring>
+#include <csignal>
 
 /*
 * Choose a random double from range [0,1]
@@ -13,7 +19,7 @@ double drand01() {
 class simulation {
 public:
     simulation();
-    simulation(int inL, double coupl);
+    simulation(int inL, double coupl, double field);
     ~simulation();
 
     double mag();
@@ -29,6 +35,9 @@ public:
     void run(int steps, double b);
     void tempsweep(int steps, double bs, double bf, int bres);
     void writeLat();
+    void writeToShm(char* shm_ptr, long step_count);
+    int getL() { return L; }
+    int getN() { return N; }
      
 private:
     int L;
@@ -36,57 +45,73 @@ private:
     int NN;
     int* lat;
     double J;
+    double h;
 };
 
 simulation::simulation() {}
 
-simulation::simulation(int inL, double coupl) {
+simulation::simulation(int inL, double coupl, double field) {
     L = inL;
     N = L*L;
     NN = 4;
     lat = new int[N];
     J = coupl;
+    h = field;
 }
 
 simulation::~simulation() {}
 
 /*
 * Generate positions of nearest neighbors on given site, using time-expensive method.
+* Site i is at row = i/L, col = i%L in the LxL lattice
 */
 int* simulation::genNeigh(int i) {
+    int* Neigh = new int[NN];
+    int row = i / L;
+    int col = i % L;
     
-   int* Neigh = new int[NN];     
-        
-        if( (i+1)%L == 0 )  Neigh[0]=i+1-L;
-        else          Neigh[0]=i+1;
-
-        if( ((i-1)%L == (L-1)) ||  ((i-1)%L == -1) )  Neigh[1]=i-1+L;
-        else          Neigh[1]=i-1;
-        
-        if( (i+L) >= N)  Neigh[2]=(i+L-N)%N;
-        else          Neigh[2]=i+L;
-
-        if( (i-L) < 0)  Neigh[3]=(i-L+N)%N;
-        else          Neigh[3]=i-L;
-        
-        return Neigh; 
+    // Right neighbor (col+1, with periodic boundary)
+    int right_col = (col + 1) % L;
+    Neigh[0] = row * L + right_col;
+    
+    // Left neighbor (col-1, with periodic boundary)
+    int left_col = (col - 1 + L) % L;
+    Neigh[1] = row * L + left_col;
+    
+    // Down neighbor (row+1, with periodic boundary)
+    int down_row = (row + 1) % L;
+    Neigh[2] = down_row * L + col;
+    
+    // Up neighbor (row-1, with periodic boundary)
+    int up_row = (row - 1 + L) % L;
+    Neigh[3] = up_row * L + col;
+    
+    return Neigh;
 }
 
 /*
 * Optimized inline neighbor lookup - no allocation
+* Site i is at row = i/L, col = i%L in the LxL lattice
 */
 void simulation::getNeighbors(int i, int* Neigh) {
-    if( (i+1)%L == 0 )  Neigh[0]=i+1-L;
-    else          Neigh[0]=i+1;
-
-    if( ((i-1)%L == (L-1)) ||  ((i-1)%L == -1) )  Neigh[1]=i-1+L;
-    else          Neigh[1]=i-1;
+    int row = i / L;
+    int col = i % L;
     
-    if( (i+L) >= N)  Neigh[2]=(i+L-N)%N;
-    else          Neigh[2]=i+L;
-
-    if( (i-L) < 0)  Neigh[3]=(i-L+N)%N;
-    else          Neigh[3]=i-L;
+    // Right neighbor (col+1, with periodic boundary)
+    int right_col = (col + 1) % L;
+    Neigh[0] = row * L + right_col;
+    
+    // Left neighbor (col-1, with periodic boundary)
+    int left_col = (col - 1 + L) % L;
+    Neigh[1] = row * L + left_col;
+    
+    // Down neighbor (row+1, with periodic boundary)
+    int down_row = (row + 1) % L;
+    Neigh[2] = down_row * L + col;
+    
+    // Up neighbor (row-1, with periodic boundary)
+    int up_row = (row - 1 + L) % L;
+    Neigh[3] = up_row * L + col;
 }
 
 
@@ -150,7 +175,11 @@ void simulation::MCstep(int i, double b) {
     int Neigh[4];
     getNeighbors(i, Neigh);
     
+    // Coupling term: interaction with 4 nearest neighbors
     for (int j=0;j<NN;j++) { deltaE += 2. * J * ( lat[i] ) * ( lat[Neigh[j]] ); }
+    
+    // Field term: interaction with external field h
+    deltaE += 2. * h * lat[i];
     
     if (deltaE < 0) { w = 1.0; }
     else            { w = exp(-b*deltaE); }
@@ -189,36 +218,93 @@ void simulation::writeLat() {
         std::cout<<"\n";
     }
 }
+
+/*
+* Write lattice to shared memory buffer
+* Format: [8 bytes step_count][4 bytes L][N bytes lattice as int8]
+*/
+void simulation::writeToShm(char* shm_ptr, long step_count) {
+    // Write header: step count (8 bytes) + L (4 bytes)
+    memcpy(shm_ptr, &step_count, sizeof(long));
+    memcpy(shm_ptr + sizeof(long), &L, sizeof(int));
+    
+    // Write lattice as int8: +1 or -1
+    char* lat_ptr = shm_ptr + sizeof(long) + sizeof(int);
+    for(int i = 0; i < N; i++) {
+        lat_ptr[i] = (char)lat[i];  // lat[i] is +1 or -1
+    }
+}
+
+// Global for signal handler cleanup
+static int shm_fd_global = -1;
+static const char* shm_name_global = "/ising_lattice";
+
+void cleanup_handler(int sig) {
+    if(shm_fd_global >= 0) {
+        close(shm_fd_global);
+        shm_unlink(shm_name_global);
+    }
+    exit(0);
+}
  
 int main(int argc, char* argv[]) {
         
-    double J = 1; // Heisenberg/Ising coupling term
-    int L = atoi( argv[1] );     // lattice size
-    double local_temperature = atof( argv[2] );
+    int L = atoi( argv[1] );                              // lattice size
+    double beta = atof( argv[2] );                        // inverse temperature
+    double J = argc > 3 ? atof(argv[3]) : 1.0;           // coupling (default 1)
+    double h = argc > 4 ? atof(argv[4]) : 0.0;           // field (default 0)
     int N = L*L;    // number of sites
     int N2 = N*N;   // square of number of sites
     int NN = 4;     // number of nearest neighbors
 
-    simulation Sim(L, J);
+    simulation Sim(L, J, h);
     Sim.init();
     
-    // Flush output immediately
-    std::cout.setf(std::ios::unitbuf);
+    // Setup shared memory
+    const char* shm_name = "/ising_lattice";
+    size_t shm_size = sizeof(long) + sizeof(int) + N;  // step + L + lattice
     
-    int chunk_steps = 100;
-    int step_count = 0;
+    int shm_fd = shm_open(shm_name, O_CREAT | O_RDWR, 0666);
+    if(shm_fd < 0) {
+        perror("shm_open failed");
+        return 1;
+    }
+    
+    if(ftruncate(shm_fd, shm_size) < 0) {
+        perror("ftruncate failed");
+        return 1;
+    }
+    
+    char* shm_ptr = (char*)mmap(NULL, shm_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if(shm_ptr == MAP_FAILED) {
+        perror("mmap failed");
+        return 1;
+    }
+    
+    // Setup cleanup on exit
+    shm_fd_global = shm_fd;
+    signal(SIGINT, cleanup_handler);
+    signal(SIGTERM, cleanup_handler);
+    
+    std::cout << "Ising simulation: L=" << L << ", β=" << beta << ", J=" << J << ", h=" << h << std::endl;
+    std::cout << "Shared memory: " << shm_name << " (" << shm_size << " bytes)" << std::endl;
+    
+    long step_count = 0;
+    int steps_per_update = N;  // N steps = 1 sweep on average
 
     // Run indefinitely until user stops
-    for(int i=0; ; i++) {
-        Sim.run(chunk_steps, local_temperature);
-        step_count += chunk_steps;
+    while(true) {
+        Sim.run(steps_per_update, beta);
+        step_count += steps_per_update;
         
-        // Output frame with step info
-        std::cout<<"FRAME "<<step_count<<"\n";
-        Sim.writeLat();
-        std::cout<<"END\n";
-        std::cout.flush();
+        // Write to shared memory
+        Sim.writeToShm(shm_ptr, step_count);
     }
+    
+    // Cleanup (unreachable, but good practice)
+    munmap(shm_ptr, shm_size);
+    close(shm_fd);
+    shm_unlink(shm_name);
     
     return 0;
 }

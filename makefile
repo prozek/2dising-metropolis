@@ -1,3 +1,3 @@
 all:
-	g++ -lm main.cpp -o output
+	g++ -O2 -lm -lrt main.cpp -o output
 
